@@ -93,8 +93,9 @@ class ProductController {
   // POST /api/products
   async create(req, res) {
     try {
-      // Baca seller_id dari Header bawaan template frontend ('X-Practice-User-Id') atau dari Body
-      const seller_id = req.headers["x-practice-user-id"] || req.body.seller_id;
+      // Baca seller_id dari Token JWT, Header Frontend, atau Body
+      const seller_id =
+        req.user?.id || req.headers["x-practice-user-id"] || req.body.seller_id;
 
       const {
         category_id,
@@ -237,7 +238,7 @@ class ProductController {
     }
   }
 
-  // PUT /api/products/:id
+  // PUT /api/products/:id (Full Update)
   async update(req, res) {
     try {
       const { id } = req.params;
@@ -250,8 +251,18 @@ class ProductController {
         });
       }
 
-      // Baca seller_id dari Header atau dari Body
-      const seller_id = req.headers["x-practice-user-id"] || req.body.seller_id;
+      const seller_id =
+        req.user?.id || req.headers["x-practice-user-id"] || req.body.seller_id;
+
+      if (
+        !seller_id ||
+        Number(seller_id) !== Number(existingProduct.seller_id)
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak memiliki akses untuk mengubah data ini",
+        });
+      }
 
       const {
         category_id,
@@ -263,17 +274,6 @@ class ProductController {
         file_path,
         status,
       } = req.body;
-
-      // Validasi kepemilikan (Ownership check)
-      if (
-        !seller_id ||
-        Number(seller_id) !== Number(existingProduct.seller_id)
-      ) {
-        return res.status(403).json({
-          success: false,
-          message: "Anda tidak memiliki akses untuk mengubah data ini",
-        });
-      }
 
       const errors = {};
 
@@ -381,12 +381,102 @@ class ProductController {
     }
   }
 
+  // PATCH /api/products/:id (Partial Update Otomatis)
+  async patch(req, res) {
+    try {
+      const { id } = req.params;
+      const existingProduct = await productRepo.findById(id);
+
+      if (!existingProduct) {
+        return res.status(404).json({
+          success: false,
+          message: "Data tidak ditemukan",
+        });
+      }
+
+      const seller_id =
+        req.user?.id || req.headers["x-practice-user-id"] || req.body.seller_id;
+
+      if (
+        !seller_id ||
+        Number(seller_id) !== Number(existingProduct.seller_id)
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "Anda tidak memiliki akses untuk mengubah data ini",
+        });
+      }
+
+      const {
+        title,
+        description,
+        price,
+        rating,
+        category_id,
+        file_path,
+        thumbnail,
+        status,
+      } = req.body;
+
+      const errors = {};
+
+      if (
+        title !== undefined &&
+        (typeof title !== "string" || title.trim() === "")
+      ) {
+        errors.title = ["Title harus berupa string dan tidak boleh kosong"];
+      }
+      if (price !== undefined && (isNaN(price) || Number(price) < 0)) {
+        errors.price = ["Price harus berupa angka minimal 0"];
+      }
+      if (
+        rating !== undefined &&
+        (isNaN(rating) || Number(rating) < 0 || Number(rating) > 10)
+      ) {
+        errors.rating = ["Rating harus berupa angka antara 0 - 10"];
+      }
+
+      if (Object.keys(errors).length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Validasi gagal",
+          errors,
+        });
+      }
+
+      await productRepo.updatePartial(id, {
+        title,
+        description,
+        price,
+        rating,
+        category_id,
+        file_path,
+        thumbnail,
+        status,
+      });
+
+      const updated = await productRepo.findById(id);
+
+      return res.status(200).json({
+        success: true,
+        message: "Produk berhasil diperbarui (PATCH)",
+        data: formatProductResponse(updated),
+      });
+    } catch (error) {
+      console.error("Error patch product:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Terjadi kesalahan pada server.",
+      });
+    }
+  }
+
   // DELETE /api/products/:id
   async delete(req, res) {
     try {
       const { id } = req.params;
-      // Baca seller_id dari Header atau dari Body
-      const seller_id = req.headers["x-practice-user-id"] || req.body.seller_id;
+      const seller_id =
+        req.user?.id || req.headers["x-practice-user-id"] || req.body.seller_id;
 
       const existingProduct = await productRepo.findById(id);
       if (!existingProduct) {
@@ -396,7 +486,6 @@ class ProductController {
         });
       }
 
-      // Validasi kepemilikan (Ownership check)
       if (
         !seller_id ||
         Number(seller_id) !== Number(existingProduct.seller_id)

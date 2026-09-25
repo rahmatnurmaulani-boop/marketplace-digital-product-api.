@@ -20,8 +20,8 @@ class ProductRepository {
         u.name AS seller_name,
         u.role AS seller_role
       FROM products p
-      INNER JOIN product_categories c ON p.category_id = c.id
-      INNER JOIN users u ON p.seller_id = u.id
+      LEFT JOIN product_categories c ON p.category_id = c.id
+      LEFT JOIN users u ON p.seller_id = u.id
       WHERE 1=1
     `;
     const params = [];
@@ -87,8 +87,8 @@ class ProductRepository {
         u.name AS seller_name,
         u.role AS seller_role
       FROM products p
-      INNER JOIN product_categories c ON p.category_id = c.id
-      INNER JOIN users u ON p.seller_id = u.id
+      LEFT JOIN product_categories c ON p.category_id = c.id
+      LEFT JOIN users u ON p.seller_id = u.id
       WHERE p.id = ?
     `;
     const [rows] = await db.query(query, [id]);
@@ -128,6 +128,7 @@ class ProductRepository {
     return result.insertId;
   }
 
+  // Update penuh (untuk method PUT)
   async update(id, data) {
     const {
       category_id,
@@ -157,6 +158,53 @@ class ProductRepository {
       ],
     );
 
+    return result.affectedRows;
+  }
+
+  // Update parsial otomatis (khusus untuk method PATCH)
+  async updatePartial(id, data) {
+    const fields = [];
+    const params = [];
+
+    if (data.category_id !== undefined) {
+      fields.push("category_id = ?");
+      params.push(Number(data.category_id));
+    }
+    if (data.title !== undefined) {
+      fields.push("title = ?");
+      params.push(data.title.trim());
+    }
+    if (data.description !== undefined) {
+      fields.push("description = ?");
+      params.push(data.description.trim());
+    }
+    if (data.price !== undefined) {
+      fields.push("price = ?");
+      params.push(Number(data.price));
+    }
+    if (data.rating !== undefined) {
+      fields.push("rating = ?");
+      params.push(Number(data.rating));
+    }
+    if (data.thumbnail !== undefined) {
+      fields.push("thumbnail = ?");
+      params.push(data.thumbnail);
+    }
+    if (data.file_path !== undefined) {
+      fields.push("file_path = ?");
+      params.push(data.file_path);
+    }
+    if (data.status !== undefined) {
+      fields.push("status = ?");
+      params.push(data.status);
+    }
+
+    // Jika tidak ada data yang dikirim, return 0
+    if (fields.length === 0) return 0;
+
+    params.push(id);
+    const query = `UPDATE products SET ${fields.join(", ")} WHERE id = ?`;
+    const [result] = await db.query(query, params);
     return result.affectedRows;
   }
 
