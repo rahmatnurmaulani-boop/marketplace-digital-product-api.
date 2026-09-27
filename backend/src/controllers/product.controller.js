@@ -381,7 +381,7 @@ class ProductController {
     }
   }
 
-  // PATCH /api/products/:id (Partial Update Otomatis)
+  // PATCH /api/products/:id
   async patch(req, res) {
     try {
       const { id } = req.params;
@@ -394,6 +394,7 @@ class ProductController {
         });
       }
 
+      // Ambil seller_id dari token JWT, header, atau body
       const seller_id =
         req.user?.id || req.headers["x-practice-user-id"] || req.body.seller_id;
 
@@ -420,20 +421,37 @@ class ProductController {
 
       const errors = {};
 
+      // Validasi HANYA JIKA field tersebut dikirim (tidak wajib semua)
       if (
         title !== undefined &&
         (typeof title !== "string" || title.trim() === "")
       ) {
-        errors.title = ["Title harus berupa string dan tidak boleh kosong"];
+        errors.title = [
+          "Field title harus berupa string dan tidak boleh kosong",
+        ];
       }
+
+      if (description !== undefined && typeof description !== "string") {
+        errors.description = ["Field description harus berupa string"];
+      }
+
       if (price !== undefined && (isNaN(price) || Number(price) < 0)) {
-        errors.price = ["Price harus berupa angka minimal 0"];
+        errors.price = ["Field price harus berupa angka minimal 0"];
       }
+
       if (
         rating !== undefined &&
         (isNaN(rating) || Number(rating) < 0 || Number(rating) > 10)
       ) {
-        errors.rating = ["Rating harus berupa angka antara 0 - 10"];
+        errors.rating = ["Field rating harus berupa angka antara 0 - 10"];
+      }
+
+      if (category_id !== undefined && isNaN(category_id)) {
+        errors.category_id = ["Field category_id harus berupa integer"];
+      }
+
+      if (file_path !== undefined && typeof file_path !== "string") {
+        errors.file_path = ["Field file_path harus berupa string"];
       }
 
       if (Object.keys(errors).length > 0) {
@@ -444,6 +462,7 @@ class ProductController {
         });
       }
 
+      // Lakukan update parsial
       await productRepo.updatePartial(id, {
         title,
         description,

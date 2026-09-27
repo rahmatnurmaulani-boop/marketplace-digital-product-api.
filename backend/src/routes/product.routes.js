@@ -15,7 +15,7 @@ router.put("/:id", authenticate, (req, res) =>
   productController.update(req, res),
 );
 router.patch("/:id", authenticate, (req, res) =>
-  productController.update(req, res),
+  productController.patch(req, res),
 );
 router.delete("/:id", authenticate, (req, res) =>
   productController.delete(req, res),

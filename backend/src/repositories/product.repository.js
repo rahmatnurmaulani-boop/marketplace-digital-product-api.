@@ -27,9 +27,10 @@ class ProductRepository {
     const params = [];
 
     // Filter Search
-    if (filters.search) {
-      query += ` AND p.title LIKE ?`;
-      params.push(`%${filters.search}%`);
+    if (filters.search && filters.search.trim() !== "") {
+      query += ` AND (LOWER(p.title) LIKE LOWER(?) OR LOWER(p.description) LIKE LOWER(?))`;
+      const keyword = `%${filters.search.trim()}%`;
+      params.push(keyword, keyword);
     }
 
     // Filter Category
